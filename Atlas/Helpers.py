@@ -50,11 +50,11 @@ def scaled_rotation(X,Y):
     C = Yhat.T@Xhat
     U,_,V = np.linalg.svd(C)
 
-    R0=V*U.T
+    R0=V.T@U.T
     
 #    % Put it all together
     S = sy/sx
     R = R0
     T = (Y.mean(0)-X.mean(0)[np.newaxis,:]@R0*S)
-#
+    
     return S,R,T

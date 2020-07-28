@@ -12,7 +12,7 @@ import numpy as np
 # %%
 
 bodypart    = 'tail'
-n_samples   = 100
+n_samples   = 10
 
 atlas       = Simulator.loat_atlas('atlas.mat',bodypart)
 samples     = Simulator.simulate_gmm(atlas,n_samples=n_samples)

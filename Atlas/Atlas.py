@@ -70,6 +70,8 @@ class Atlas:
         
 #        % computing beta for each training worm based using multiple
 #        % covariance regression solver
+        
+        cost = [0,0]
         for j in range(X.shape[2]):
             idx = ~np.isnan(X[:,:,j]).all(1)
             
@@ -90,9 +92,14 @@ class Atlas:
             beta0[:,3:,j] = -R[C,np.newaxis]@beta[3:,3:,j]
             
             aligned[:,:,j] = (X[:,:,j]-beta0[:,:,j])@np.linalg.inv(beta[:,:,j])
+            
+            cost[0] = cost[0] + np.sqrt(((aligned[idx,:3,j]-model['mu'][idx,:3])**2).sum(1)).sum()
+            cost[1] = cost[1] + np.sqrt(((aligned[idx,3:,j]-model['mu'][idx,3:])**2).sum(1)).sum()
         
         params['beta'] = beta
         params['beta0'] = beta0
+        
+#        print(cost)
         
         return params, aligned
     
@@ -235,6 +242,7 @@ class Atlas:
 
 #            % updating aligned
             params,aligned = Atlas.update_beta(init_aligned,model)
+            
         
 #        % standardize the atlas by axis aligning it
 #        [model,aligned] = AutoIdTrain.major_axis_align(model,aligned);
