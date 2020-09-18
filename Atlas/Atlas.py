@@ -261,4 +261,53 @@ class Atlas:
             
         return atlas,aligned_coord
     
-
+    @staticmethod
+    def train_distance_atlas(annotations,scales,positions,colors,bodypart):
+#        reading the annotations
+        N = list(set([item for sublist in annotations for item in sublist]))
+        N.sort()
+        
+        C = colors[0].shape[1]
+#        allocationg memory for color and position
+        pos = np.zeros((len(N),3,len(annotations)))*np.nan
+        col = np.zeros((len(N),C,len(annotations)))*np.nan
+        
+#        re-ordering colors and positions to have the same neurons in
+#        similar rows
+        for j in range(len(annotations)):
+            perm = np.array([N.index(x) for x in annotations[j]])
+            pos[perm,:,j] = positions[j]*scales[j][np.newaxis,:]
+            col_tmp = colors[j]
+            col[perm,:,j] = col_tmp
+        
+        counts = (~np.isnan(pos.sum(1))).sum(1)
+#        filtering the neurons based on min_count of the missing data
+        good_indices = np.logical_and( counts>Atlas.min_counts, 
+                                      ~np.array([x == '' or x == None for x in N]))
+        pos = pos[good_indices ,:,:]
+        col = col[good_indices ,:,:]
+        
+        N = [N[i] for i in range(len(good_indices)) if good_indices[i]]
+        
+        D1 = np.zeros((len(N),len(N)))
+        D2 = np.zeros((len(N),len(N)))
+        
+        C1 = np.zeros((len(N),len(N)))
+        C2 = np.zeros((len(N),len(N)))
+        
+        for i in range(len(N)):
+            for j in range(len(N)):
+                D1[i,j] = np.nanmean(np.sqrt(((pos[i,:,:] - pos[j,:,:])**2).sum(0)))
+                C1[i,j] = np.nanstd(np.sqrt(((pos[i,:,:] - pos[j,:,:])**2).sum(0)))
+                
+                D2[i,j] = np.nanmean(np.sqrt(((col[i,:,:] - col[j,:,:])**2).sum(0)))
+                C2[i,j] = np.nanstd(np.sqrt(((col[i,:,:] - col[j,:,:])**2).sum(0)))
+                
+        atlas = {'bodypart':bodypart,
+                  'C1': C1,
+                  'D1': D1,
+                  'C2': C2,
+                  'D2': D2,
+                  'names': N}
+        
+        return atlas
