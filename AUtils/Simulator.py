@@ -12,6 +12,25 @@ from scipy.io import loadmat
 from scipy.stats import ortho_group
 
 def loat_atlas(file,bodypart):
+    """Load C. elegans atlas file
+        
+    Args:
+        file (string): File address of the file to be loaded
+        bodypart (string): The bodypart that the atlas is requested for, choose
+            between ('head','tail')
+    
+    Returns:
+        dict: Atlas information with the following keys
+            mu (numpy.ndarray): Nx(3+C) where N is the number of neurons and C 
+                is the number of channles; each row corresponds to the center 
+                and color of one neuron in the canonical space
+            sigma (numpy.ndarray): Nx(3+C)x(3+C) where N is the number of neurons 
+                and C is the number of channles; each row corresponds to the covariance
+                of the position and color of one neuron in the canonical space
+            names (array): String array containing the names of the neurons
+            bodypart (string): Same as the input bodypart
+    """
+    
     content = loadmat(file)
     
     if bodypart == 'head':
@@ -28,7 +47,17 @@ def loat_atlas(file,bodypart):
     return {'mu':mu, 'sigma':sigma, 'names': names, 'bodypart':bodypart}
 
 def simulate_gmm(atlas,n_samples=10):
-    
+    """Simulate samples from atlas by sampling from Gaussian distributions and
+        transforming according to random rotations
+        
+    Args:
+        atlas (dict): Pre-trained statistical atlas
+        n_samples (integer): Number of samples (worms) to be generated
+        
+    Returns:
+        samples (numpy.ndarray): Positions and colors of the sampled worms
+            with size (N,3+C,K)
+    """
     
     C       = atlas['mu'].shape[1]-3 # Number of colors
     K       = atlas['mu'].shape[0] # Number of components
