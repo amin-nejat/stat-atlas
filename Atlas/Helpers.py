@@ -25,8 +25,8 @@ def MCR_solver(Y,X,sigma):
     A = np.zeros((sigma.shape[0]*X.shape[1],sigma.shape[0]*X.shape[1],Y.shape[0]))
     B = np.zeros((X.shape[1],sigma.shape[0],Y.shape[0]))
     for i in range(Y.shape[0]):
-        A[:,:,i]=np.kron(np.linalg.inv(sigma[:,:,i]),X[i,np.newaxis].T@X[i,np.newaxis])
-        B[:,:,i]=X[i,np.newaxis].T@Y[i,np.newaxis]@np.linalg.inv(sigma[:,:,i])
+        A[:,:,i]=np.kron(np.linalg.inv(sigma[:,:,i]),X[i,None].T@X[i,None])
+        B[:,:,i]=X[i,None].T@Y[i,None]@np.linalg.inv(sigma[:,:,i])
     
     B_s = np.nansum(B,2)
     beta = (np.linalg.inv(np.nansum(A,2))@B_s.T.reshape((np.prod(B_s.shape),1))).reshape((Y.shape[1],X.shape[1])).T

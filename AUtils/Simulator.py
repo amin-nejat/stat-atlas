@@ -4,13 +4,12 @@ Created on Fri Jul  3 14:13:09 2020
 
 @author: Amin
 """
+from Neurons import Neuron, Image
 import pyro.distributions as dist
-import numpy as np
-import torch
-import pyro
 from scipy.io import loadmat
-from scipy.stats import ortho_group
+import torch
 
+# %%
 def loat_atlas(file,bodypart):
     """Load C. elegans atlas file
         
@@ -31,21 +30,17 @@ def loat_atlas(file,bodypart):
             bodypart (string): Same as the input bodypart
     """
     
-    content = loadmat(file)
+    content = loadmat(file,simplify_cells=True)
     
-    if bodypart == 'head':
-        mu = content['atlas'][0][0][0][0][0][0][0,0][0]
-        sigma = content['atlas'][0][0][0][0][0][0][0,0][1]
-        names = [content['atlas'][0][0][0][0][0][1][i][0][0] for i in range(mu.shape[0])]
-    elif bodypart == 'tail':
-        mu = content['atlas'][0][0][1][0][0][0][0,0][0]
-        sigma = content['atlas'][0][0][1][0][0][0][0,0][1]
-        names = [content['atlas'][0][0][1][0][0][1][i][0][0] for i in range(mu.shape[0])]
+    mu = content['atlas'][bodypart]['model']['mu']
+    sigma = content['atlas'][bodypart]['model']['sigma']
+    names = content['atlas'][bodypart]['N']
     
-    mu[:,:3] = mu[:,:3]-1 # Matlab to Python
+    mu[:,:3] = mu[:,:3] - 1 # Matlab to Python
     
     return {'mu':mu, 'sigma':sigma, 'names': names, 'bodypart':bodypart}
 
+# %%
 def simulate_gmm(atlas,n_samples=10):
     """Simulate samples from atlas by sampling from Gaussian distributions and
         transforming according to random rotations
@@ -59,28 +54,38 @@ def simulate_gmm(atlas,n_samples=10):
             with size (N,3+C,K)
     """
     
+    # Sampling data
+    
     C       = atlas['mu'].shape[1]-3 # Number of colors
     K       = atlas['mu'].shape[0] # Number of components
 
-    
-    
-    cov = np.zeros(((C+3)*(K),(C+3)*(K)))
-    for n in range(K):
-        cov[6*n:6*n+6,6*n:6*n+6] = atlas['sigma'][:,:,n]
-        
     μ_p = torch.tensor(atlas['mu']).float()
-    Σ_p = torch.tensor(cov).float()
+    Σ_p = torch.tensor(atlas['sigma']).float()
     
-    # %% Sample generative data
-    samples = []
+    mu = torch.zeros(K,C+3,n_samples)
+    for k in range(K):
+        mu[k,:,:] = dist.MultivariateNormal(µ_p[k,:], Σ_p[:,:,k]).sample((1,n_samples)).T.squeeze()
+    
+    
+    #  Creating Images
+    ims = []
     for n in range(n_samples):
-        mu = pyro.sample('µ', dist.MultivariateNormal(µ_p.reshape(-1), Σ_p)).view(µ_p.shape)
-        beta = torch.zeros((C+3,C+3))
+        neurons = []
+        for k in range(len(atlas['names'])):
+            neuron = Neuron.Neuron()
+             # Neuron position & color
+            neuron.position        = mu[k,:3,n].numpy()
+            neuron.color           = mu[k,3:,n].numpy()
+            neuron.color_readout   = mu[k,3:,n].numpy()
+            
+            # User neuron ID
+            neuron.annotation      = atlas['names'][k] 
+            neuron.annotation_confidence = .99
+            
+            neurons.append(neuron)
+            
+        im = Image.Image(atlas['bodypart'],neurons)
+        ims.append(im)
         
-        beta[:3,:3] = torch.tensor(ortho_group.rvs(3)).float()
-        beta[3:,3:] = torch.tensor(ortho_group.rvs(C)).float()
-
-        samples.append({'mu':mu@beta,'beta':beta})
-        
-    return samples
+    return ims
 
