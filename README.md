@@ -30,13 +30,20 @@ conda create -n statatlas python=3.8
 conda activate statatlas
 ```
 
-3. Install other requirements
+3. Clone the repository
+
+```
+https://github.com/amin-nejat/stat-atlas.git
+cd stat-atlas
+```
+
+4. Install package requirements
 
 ```
 pip install -r requirements.txt
 ```
 
-4. Run either using the demo notebook file in the notebooks folder.
+5. Run either using the demo notebook file in the notebooks folder.
 
 
 Since the code is preliminary, you will be able to use `git pull` to get updates as we release them.
