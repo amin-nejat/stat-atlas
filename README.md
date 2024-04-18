@@ -30,15 +30,13 @@ conda create -n statatlas python=3.8
 conda activate statatlas
 ```
 
-3. Install [**Pytorch**](https://pytorch.org/) package
-
-4. Install other requirements
+3. Install other requirements
 
 ```
 pip install -r requirements.txt
 ```
 
-6. Run either using the demo notebook file in the notebooks folder.
+4. Run either using the demo notebook file in the notebooks folder.
 
 
 Since the code is preliminary, you will be able to use `git pull` to get updates as we release them.
