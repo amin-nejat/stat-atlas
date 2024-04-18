@@ -4,22 +4,22 @@ Created on Tue Apr 28 21:44:06 2020
 
 @author: Amin
 """
+
 import numpy as np
 
-def MCR_solver(Y,X,sigma):
+# %%
+def MCR_solver(X,Y,sigma):
     """MCR - Multiple covariance regression solver
-    
     Solving: \sum_i \|Y_i - X_i \beta\|_{sigma_i}**2
     
     Args:
-        X (numpy.ndarray): Target (n x d)
-        Y (numpy.ndarray): Source (n x p)
-        Sigma (integer): covariances for each row of Y (d x d x n)
+        X (np.ndarray): Target (NxD)
+        Y (np.ndarray): Source (NxP)
+        Sigma (int): covariances for each row of Y (DxDxN)
         
     Returns:
-        beta (numpy.ndarray): Transformation aligning the point sets given the
+        beta (np.ndarray): Transformation aligning the point sets given the
             covariances 
-    
     """
     
     A = np.zeros((sigma.shape[0]*X.shape[1],sigma.shape[0]*X.shape[1],Y.shape[0]))
@@ -32,46 +32,44 @@ def MCR_solver(Y,X,sigma):
     beta = (np.linalg.inv(np.nansum(A,2))@B_s.T.reshape((np.prod(B_s.shape),1))).reshape((Y.shape[1],X.shape[1])).T
     return beta
 
-
-def scaled_rotation(X,Y):
-    """Solves for Y = S*R*X + T 
+# %%
+def scaled_rotation(X,Y,sigma=None):
+    """Solves for Y=S@R@X+T
     
     Args:
-        X (numpy.ndarray): Target (n x d)
-        Y (numpy.ndarray): Source (n x p)
-        Sigma (integer): covariances for each row of Y (d x d x n)
+        X (np.ndarray): Target (NxD)
+        Y (np.ndarray): Source (NxP)
+        Sigma (int): covariances for each row of Y (d x d x n)
         
     Returns:
-        S (numpy.ndarray): diagonal scaling matrix
-        R (numpy.ndarray): Rotation matrix i.e. orthonormal and det(R)=1
-        T (numpy.ndarray): Translation
-    
+        S (np.ndarray): diagonal scaling matrix
+        R (np.ndarray): Rotation matrix i.e. orthonormal and det(R)=1
+        T (np.ndarray): Translation
     """
     
-#    Remove NAN rows
-    
+    # Remove NAN rows
     idx = ~np.isnan(np.concatenate((X,Y),1)).any(1)
     X = X[idx,:]
     Y = Y[idx,:]
 
-#    De-mean
+    # De-mean 
     Yhat = Y-Y.mean(0)[np.newaxis,:]
     Xhat = X-X.mean(0)[np.newaxis,:]
     
-#    Scale
+    # Scale
     sx = np.sqrt((Xhat**2).sum()/Xhat.shape[0])
     sy = np.sqrt((Yhat**2).sum()/Yhat.shape[0])
     
     Yhat=Yhat/sy
     Xhat=Xhat/sx
 
-#    Solve rotation
+    # Solve rotation
     C = Yhat.T@Xhat
     U,_,V = np.linalg.svd(C)
 
     R0=V.T@U.T
     
-#    Put it all together
+    # Put it all together
     S = sy/sx
     R = R0
     T = (Y.mean(0)-X.mean(0)[np.newaxis,:]@R0*S)
