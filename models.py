@@ -1,10 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Tue Apr 28 21:31:11 2020
-
-@author: Amin
-"""
-
 import copy
 
 import scipy as sp
@@ -114,7 +107,7 @@ class Atlas:
         return params, aligned, cost
     
 
-    def initialize_atlas(self,col,pos):
+    def initialize_atlas(self,col,pos, match_indices, train_indices):
         """Initialize atlas by finding the best image for aligning all other 
         images
     
@@ -129,23 +122,23 @@ class Atlas:
 		
         # memory allocation
         atlas = {}
-        cost = np.zeros((pos.shape[2],pos.shape[2]))
+        cost = np.zeros((pos.shape[2],len(match_indices)))
         aligned = [np.zeros((
             pos.shape[0], 
             pos.shape[1]+col.shape[1],
             pos.shape[2]
-        ))]*pos.shape[2]
+        ))]*len(match_indices)
         
         # alignment of samples to best fit worm
         for i in range(pos.shape[2]):
-            for j in range(pos.shape[2]):
+            for j, num in enumerate(match_indices):
                 S0,R0,T0 = utils.scaled_rotation(
                     pos[:,:,i],
-                    pos[:,:,j]
+                    pos[:,:,num]
                 )
                 cost[i,j] = np.sqrt(
                     np.nanmean(
-                        np.nansum((pos[:,:,i]@(R0*S0)+T0-pos[:,:,j])**2,1),0
+                        np.nansum((pos[:,:,i]@(R0*S0)+T0-pos[:,:,num])**2,1),0
                     ))
                 aligned[j][:,:3,i] = pos[:,:,i]@(R0*S0)+T0
                 aligned[j][:,3:,i] = col[:,:,i]
@@ -153,7 +146,7 @@ class Atlas:
         jidx = np.argmin(cost.sum(0))
         X = aligned[jidx]
 
-        atlas['mu'] = np.nanmean(X,2)          
+        atlas['mu'] = np.nanmean(X[:,:,train_indices],2)          
         
         return atlas,X
     
@@ -204,7 +197,7 @@ class Atlas:
         
         # computing the covariances
         for i in range(aligned.shape[0]):
-            sigma[:,:,i] = np.ma.cov(np.ma.masked_array(aligned[i,:,:]))
+            sigma[:,:,i] = np.ma.cov(np.ma.masked_array(aligned[i,:,:], mask=np.isnan(aligned[i,:,:])))
         
         # well-condition the sigmas by adding epsilon*identity
         sigma[:3,:3,:] = sigma[:3,:3,:] + reg[0]*np.eye(sigma[:3,:3,:].shape[0])[:,:,None]
@@ -222,7 +215,7 @@ class Atlas:
     
     
     
-    def sort_mu(self,ims,neurons=None):
+    def sort_mu(self,ims, train_indices, neurons=None):
         annotations = [x.get_annotations() for x in ims]
         scales = [np.array([1,1,1]) for x in ims]
         positions = [x.get_positions(x.scale) for x in ims]
@@ -246,7 +239,7 @@ class Atlas:
         
         # computing the number of worms with missing data for each
         # neuron
-        counts = (~np.isnan(pos.sum(1))).sum(1)
+        counts = (~np.isnan(pos[:,:,train_indices].sum(1))).sum(1)
 
         # filtering the neurons based on min_count of the missing data
         good_indices = np.logical_and( counts>self.min_counts, 
@@ -271,7 +264,9 @@ class Atlas:
             ims,
             bodypart,
             neurons=None,
-            n_iter=10
+            n_iter=10,
+            train_indices = [],
+            match_indices = []
         ):
         """Main function for estimating the atlas of positions and colors
     
@@ -284,6 +279,14 @@ class Atlas:
             atlas (dict): Trained atlas
             aligned_coord (np.ndarray): Aligned point clouds
         """
+
+        if train_indices == []:
+            train_indices = np.arange(len(ims))
+        if match_indices == []:
+            match_indices = np.arange(len(ims))
+
+        train_indices = np.asarray(train_indices)
+        match_indices = np.asarray(match_indices)
         
         ims = copy.deepcopy(ims)
         bodypart = ims[0].bodypart
@@ -301,10 +304,10 @@ class Atlas:
         colors = [x.get_colors_readout() for x in ims]
                               
         C = colors[0].shape[1]
-        N,col,pos,counts = self.sort_mu(ims)
+        N,col,pos,counts = self.sort_mu(ims, train_indices)
         
         # initialization
-        model,aligned = self.initialize_atlas(col,pos);
+        model,aligned = self.initialize_atlas(col,pos, match_indices, train_indices)
         init_aligned = np.hstack((pos,col))
         
         cost = []
@@ -316,13 +319,13 @@ class Atlas:
             # updating means.
             model['mu'] = self.estimate_mu(
                 model['mu'],
-                aligned
+                aligned[:,:,train_indices]
             )
             
             # updating sigma
             model['sigma'] = self.estimate_sigma(
                 model['mu'],
-                aligned,reg=self.epsilon
+                aligned[:,:,train_indices],reg=self.epsilon
             )
             
             # updating aligned
@@ -339,8 +342,8 @@ class Atlas:
                 )
             )
             
-        model['mu'] = self.estimate_mu(model['mu'],aligned)
-        model['sigma'] = self.estimate_sigma(model['mu'],aligned)
+        model['mu'] = self.estimate_mu(model['mu'],aligned[:,:,train_indices])
+        model['sigma'] = self.estimate_sigma(model['mu'],aligned[:,:,train_indices])
         
         # store the result for the output
         atlas = {
