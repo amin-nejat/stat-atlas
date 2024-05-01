@@ -114,6 +114,8 @@ class Atlas:
         Args:
             col (np.ndarray): NxC color array (C num channels)
             pos (np.ndarray): Nx3 position array
+            train_indices (np.ndarray or list): indices of ims to use for training
+            match_indices (np.ndarray or list): indices of ims to use for initial spatial matching in initialize atlas
                 
         Returns:
             atlas (dict): Initialized atlas
@@ -274,6 +276,8 @@ class Atlas:
             positions (np.ndarray): Nx3 position array
             colors (np.ndarray): NxC color array
             bodypart (str): Worm's body part (head or tail)
+            train_indices (np.ndarray or list): indices of ims to use for training
+            match_indices (np.ndarray or list): indices of ims to use for initial spatial matching in initialize atlas
                 
         Returns:
             atlas (dict): Trained atlas
